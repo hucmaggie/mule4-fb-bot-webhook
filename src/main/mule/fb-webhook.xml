@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:tls="http://www.mulesoft.org/schema/mule/tls"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="c0681e9e-c13a-4228-a805-21b75c01a2dd" >
+		<http:listener-connection host="0.0.0.0" port="8081"/>
+	</http:listener-config>
+	<configuration-properties doc:name="Configuration properties" doc:id="0a2e13f5-0fda-4930-a9ed-9fe91d488bba" file="config/mule-app.properties" />
+	<http:request-config name="Call_Send_API_Request_configuration" doc:name="HTTP Request configuration" doc:id="97379dc5-991b-481f-b9ed-859cfd26d61b" >
+		<http:request-connection protocol="HTTPS" host="graph.facebook.com" port="443" tlsContext="TLS_Context">
+		</http:request-connection>
+	</http:request-config>
+	<tls:context name="TLS_Context" doc:name="TLS Context" doc:id="8d75c845-f5df-40ef-9c95-6c33933714b9" >
+		<tls:key-store type="pkcs12" path="fb-workplace-system-api.p12" keyPassword="Mulesoft1234" password="Mulesoft1234"/>
+	</tls:context>
+	<http:listener-config name="HTTPS_Listener_config" doc:name="HTTP Listener config" doc:id="ebba18bd-792a-415b-9350-eee875a33b82" >
+		<http:listener-connection protocol="HTTPS" host="0.0.0.0" port="${https.port}" tlsContext="TLS_Context" />
+	</http:listener-config>
+	<flow name="fb-webhookFlow" doc:id="4106c518-f86d-41ab-8bbf-fff06962e24e" >
+		<http:listener doc:name="Listener" doc:id="f2a59508-884b-4458-867c-19503141505a" config-ref="HTTP_Listener_config" path="/webhook"/>
+		<choice doc:name="GET or POST" doc:id="c921e8db-f187-4917-8bb5-bdc55baae729" >
+			<when expression="#[message.attributes.method == 'POST']">
+				<ee:transform doc:name="Transform Message" doc:id="7173abfa-debd-440c-85a3-af829cfcca56" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<choice doc:name="MESSAGE or POSTBACK" doc:id="14094b3f-4fec-46af-964a-9f2995a409fa">
+					<when expression="#[!(payload.entry[0].messaging[0].message == null)]">
+						<choice doc:name="Message Text" doc:id="af19a999-a1bc-4cc2-b475-78c7219d10e2">
+					<when expression="#[!(payload.entry[0].messaging[0].message == null)]">
+						<flow-ref doc:name="echo-response" doc:id="e185a91e-747f-473c-a208-3c86943e8b4c" name="echo-response" />
+					</when>
+					<when expression='#[payload.entry.messaging.message.text contains("template")]'>
+						<flow-ref doc:name="template-response" doc:id="03061219-49a1-48d6-9859-9ba4b32e3ea0" name="template-response" />
+					</when>
+					<when expression='#[payload.entry[0].messaging[0].message.text contains("button")]'>
+						<flow-ref doc:name="button-response" doc:id="87095a05-6997-4c7b-9678-d83b67959f2f" name="button-response" />
+					</when>
+							<otherwise>
+						<flow-ref doc:name="echo-response" doc:id="68cf0d70-1830-4013-a243-91cdaf500f8a" name="echo-response" />
+					</otherwise>
+				</choice>
+					</when>
+					<otherwise >
+						<logger level="INFO" doc:name="POSTBACK Logger" doc:id="8cdc6493-48e4-496f-99cb-a23bb6834ebb" message='#[payload]'/>
+					</otherwise>
+				</choice>
+				<logger level="INFO" doc:name="Logger" doc:id="485d8181-0c99-4256-92ef-c326a2f3ed8f" message="#[payload]" />
+				<http:request method="POST" doc:name="Call Facebook Send API" doc:id="1c541985-e478-4cc5-9e53-d0a0f31115f7" config-ref="Call_Send_API_Request_configuration" path="/v8.0/me/messages">
+			<http:body><![CDATA[#[output application/json
+---
+payload]]]></http:body>
+			<http:query-params><![CDATA[#[output application/java
+---
+{
+	"access_token" : "${access_token}"
+}]]]></http:query-params>
+		</http:request>
+				<logger level="INFO" doc:name="Logger" doc:id="e7378dc0-ae0c-4e08-8bf8-20fec54b61a2" message="#[payload]" />
+			</when>
+			<otherwise >
+				<set-payload value="#[message.attributes.queryParams['hub.challenge']]" doc:name="GET - Respond with challenge" doc:id="e48ff80d-2aa6-4bdf-8715-bdb3cd9fc431" />
+			</otherwise>
+		</choice>
+	</flow>
+	<flow name="echo-response" doc:id="e49a944a-de0b-4718-aa85-7f191fc6bb79" >
+		<ee:transform doc:name="Object to JSON" doc:id="8682f5f2-36a4-4b5e-bd4d-855390d478a4" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	recipient: {
+		id: payload.entry.messaging[0].sender.id[0]
+	},
+	message: {
+		text: payload.entry.messaging[0].message.text[0]
+	}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="template-response" doc:id="858b69f8-f2b0-4ffd-8876-ab04b3f1e5d4" >
+		<ee:transform doc:name="Object to JSON" doc:id="13abaa93-8a70-4428-a3f5-d3e7a7490540" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	recipient: {
+		id: payload.entry.messaging[0].sender.id[0]
+	},
+	message: attachment: {
+		"type": "template",
+		payload: {
+			template_type: "generic",
+			elements: [{
+				title: "rift",
+				subtitle: "Next-generation virtual reality",
+				item_url: "https://www.oculus.com/en-us/rift/",
+				image_url: "http://messengerdemo.parseapp.com/img/rift.png",
+				buttons: [{
+					"type": "web_url",
+					url: "https://www.oculus.com/en-us/rift/",
+					title: "Open Web URL"
+				},{
+					"type": "postback",
+					title: "Call Postback",
+					payload: "Payload for first bubble"
+				}]
+			},{
+				title: "touch",
+				subtitle: "Your Hands, Now in VR",
+				item_url: "https://www.oculus.com/en-us/touch/",
+				image_url: "http://messengerdemo.parseapp.com/img/touch.png",
+				buttons: [{
+					"type": "web_url",
+					url: "https://www.oculus.com/en-us/touch/",
+					title: "Open Web URL"
+				},{
+					"type": "postback",
+					title: "Call Postback",
+					payload: "Payload for second bubble"
+				}]
+			}]
+		}
+	}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="button-response" doc:id="d90a25bd-4d31-4983-ba10-802dde08b5a6" >
+		<ee:transform doc:name="Object to JSON" doc:id="3afba42c-0ea4-4632-91ff-514c386882fa" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	recipient: {
+		id: payload.entry.messaging[0].sender.id[0]
+	},
+	message: {
+      attachment: {
+        "type": "template",
+        "payload": {
+          "template_type": "button",
+          "text": "This is test text",
+          buttons:[{
+            "type": "web_url",
+            "url": "https://www.oculus.com/en-us/rift/",
+            "title": "Open Web URL"
+          }, {
+            "type": "postback",
+            "title": "Trigger Postback",
+            "payload": "DEVELOPER_DEFINED_PAYLOAD"
+          }, {
+            "type": "phone_number",
+            "title": "Call Phone Number",
+            "payload": "+16505551234"
+          }]
+        }
+      }
+    }
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="facebook-bot-site" doc:id="3fcef96e-fd19-4285-977f-18bff12e63a9" >
+		<http:listener doc:name="Listener" doc:id="5a0ae471-b53b-49a7-a945-f971eb44a8e4" config-ref="HTTP_Listener_config" path="/"/>
+		<logger level="INFO" doc:name="Logger" doc:id="a4c6084e-ee91-4dc3-9eb2-b83cdf2e289b" message="#[payload]"/>
+		<set-payload value="Hello Facebook Bot!" doc:name="Set Payload" doc:id="142c4d7a-2bda-4b72-a82b-32cc47549511" />
+	</flow>
+</mule>
