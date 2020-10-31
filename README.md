@@ -1,2 +1,2 @@
 # mule4-fb-bot-webhook
-Facebook Bot Webhook Example in Mule 4
+Facebook Bot Webhook Example in Mule 4 refactored from [HowTo – Build a Facebook Messenger Bot Using Anypoint Platform](https://blogs.mulesoft.com/dev/howto/build-facebook-messenger-bot-using-anypoint-platform/).

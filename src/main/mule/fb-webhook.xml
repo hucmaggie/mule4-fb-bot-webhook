@@ -24,14 +24,6 @@ http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/
 		<http:listener doc:name="Listener" doc:id="f2a59508-884b-4458-867c-19503141505a" config-ref="HTTP_Listener_config" path="/webhook"/>
 		<choice doc:name="GET or POST" doc:id="c921e8db-f187-4917-8bb5-bdc55baae729" >
 			<when expression="#[message.attributes.method == 'POST']">
-				<ee:transform doc:name="Transform Message" doc:id="7173abfa-debd-440c-85a3-af829cfcca56" >
-					<ee:message >
-						<ee:set-payload ><![CDATA[%dw 2.0
-output application/java
----
-payload]]></ee:set-payload>
-					</ee:message>
-				</ee:transform>
 				<choice doc:name="MESSAGE or POSTBACK" doc:id="14094b3f-4fec-46af-964a-9f2995a409fa">
 					<when expression="#[!(payload.entry[0].messaging[0].message == null)]">
 						<choice doc:name="Message Text" doc:id="af19a999-a1bc-4cc2-b475-78c7219d10e2">

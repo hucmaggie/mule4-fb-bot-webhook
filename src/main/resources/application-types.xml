@@ -75,7 +75,6 @@ type button_json = {|
       </types:output-event>
     </types:processor-declaration>
   </types:enrichment>
-  <types:enrichment select="#7173abfa-debd-440c-85a3-af829cfcca56"/>
   <types:enrichment select="#13abaa93-8a70-4428-a3f5-d3e7a7490540">
     <types:processor-declaration>
       <types:input-event>
